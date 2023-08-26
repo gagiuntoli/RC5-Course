@@ -1,14 +1,16 @@
-fn main() {
-    println!("Hello, world!");
-}
 
 pub trait Word:
     Clone
     + Copy
+    + std::fmt::Debug
+    + std::cmp::PartialEq
+    + std::ops::BitAnd<Output = Self>
     + std::ops::AddAssign
     + std::ops::Add<Output = Self>
     + std::ops::Sub<Output = Self>
     + std::ops::BitXor<Output = Self>
+    + std::ops::BitAnd<Output = Self>
+    + std::ops::BitOr<Output = Self>
     + std::ops::Shl<Output = Self>
     + std::ops::Shr<Output = Self>
 {
@@ -19,6 +21,23 @@ pub trait Word:
     const BYTES: usize;
 
     fn from_u8(val: u8) -> Self;
+    fn from_usize(val: usize) -> Self;
+}
+
+impl Word for u8 {
+    const ZERO: Self = 0u8;
+    const P: Self = 0u8;
+    const Q: Self = 0u8;
+
+    const BYTES: usize = 1usize;
+
+    fn from_u8(val: u8) -> Self {
+        val
+    }
+
+    fn from_usize(val: usize) -> Self {
+        val as u8
+    }
 }
 
 //
@@ -149,3 +168,45 @@ pub fn expand_key<W: Word>(key: Vec<u8>, rounds: usize) -> Vec<W> {
     key_s
 }
 
+pub fn rotl<W: Word>(x: W, y: W) -> W {
+    let w = W::BYTES * 8;
+    let a = y & W::from_usize(w - 1);
+    if a == W::ZERO {
+        x
+    } else {
+        (x << a) | (x >> (W::from_usize(w) - a))
+    }
+}
+
+pub fn rotr<W: Word>(x: W, y: W) -> W {
+    let w = W::BYTES * 8;
+    let a = y & W::from_usize(w - 1);
+    if a == W::ZERO {
+        x
+    } else {
+        (x >> a) | (x << (W::from_usize(w) - a))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_left_right_shift() {
+        let a = 0x77u8; // 0111 0111
+
+        assert_eq!(rotl(a, 1u8), 0xeeu8);
+        assert_eq!(rotl(a, 7u8), 0xbbu8); // 1011 1011 = 0xbb
+        assert_eq!(rotl(a, 8u8), a);
+        assert_eq!(rotl(a, 2 * 8u8), a);
+        assert_eq!(rotl(a, 5 * 8u8), a);
+
+        assert_eq!(rotl(a, 1u8), 0xeeu8); // 1110 1110 = 0xee
+        assert_eq!(rotl(a, 7u8), 0xbbu8); // 1011 1011 = 0xbb
+        assert_eq!(rotr(a, 8u8), a);
+        assert_eq!(rotr(a, 2 * 8u8), a);
+        assert_eq!(rotr(a, 5 * 8u8), a);
+
+    }
+}
