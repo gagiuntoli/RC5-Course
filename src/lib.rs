@@ -72,7 +72,7 @@ pub fn encrypt<W: Word>(pt: [W; 2], key: &Vec<u8>, rounds: usize) -> [W; 2] {
 
     a = a.wrapping_add(&s[0]);
     b = b.wrapping_add(&s[1]);
-    for i in 1..rounds + 1 {
+    for i in 1..=rounds {
         a = rotl(a ^ b, b).wrapping_add(&s[2 * i]);
         b = rotl(b ^ a, a).wrapping_add(&s[2 * i + 1]);
     }
@@ -92,7 +92,7 @@ pub fn decrypt<W: Word>(ct: [W; 2], key: &Vec<u8>, rounds: usize) -> [W; 2] {
 
     let [mut a, mut b] = ct;
 
-    for i in (1..rounds + 1).rev() {
+    for i in (1..=rounds).rev() {
         b = rotr(b.wrapping_sub(&s[2 * i + 1]), a) ^ a;
         a = rotr(a.wrapping_sub(&s[2 * i]), b) ^ b;
     }
@@ -138,9 +138,9 @@ pub fn expand_key<W: Word>(key: &Vec<u8>, rounds: usize) -> Vec<W> {
     let c = std::cmp::max(1, tmp);
     let mut key_l = vec![W::ZERO; c];
 
-    for i in (0..(b - 1)).rev() {
+    for i in (0..b).rev() {
         let ix = i / W::BYTES;
-        key_l[ix] = rotl(key_l[ix], W::from_u8(8u8)).wrapping_add(&W::from_u8(key[i]));
+        key_l[ix] = (key_l[ix] << W::from_u8(8u8)).wrapping_add(&W::from_u8(key[i]));
     }
 
     let mut key_s = vec![W::ZERO; t];
@@ -238,9 +238,73 @@ mod tests {
         let rounds = 12;
 
         let ct = encrypt(pt, &key, rounds);
-        assert_eq!(ct, [0xeedba521u32, 0x6d8f4b15]);
+        assert_eq!(ct, [0xEEDBA521u32, 0x6D8F4B15]);
 
         let pt = decrypt(ct, &key, rounds);
         assert_eq!(pt, [0x00000000u32, 0x00000000]);
+    }
+
+    #[test]
+    fn test_rivest_2() {
+        let key = vec![
+            0x91, 0x5F, 0x46, 0x19, 0xBE, 0x41, 0xB2, 0x51, 0x63, 0x55, 0xA5, 0x01, 0x10, 0xA9,
+            0xCE, 0x91,
+        ];
+        let pt = [0xEEDBA521u32, 0x6D8F4B15];
+        let rounds = 12;
+
+        let ct = encrypt(pt, &key, rounds);
+        assert_eq!(ct, [0xAC13C0F7u32, 0x52892B5B]);
+
+        let pt = decrypt(ct, &key, rounds);
+        assert_eq!(pt, [0xEEDBA521u32, 0x6D8F4B15]);
+    }
+
+    #[test]
+    fn test_rivest_3() {
+        let key = vec![
+            0x78, 0x33, 0x48, 0xE7, 0x5A, 0xEB, 0x0F, 0x2F, 0xD7, 0xB1, 0x69, 0xBB, 0x8D, 0xC1,
+            0x67, 0x87,
+        ];
+        let pt = [0xAC13C0F7u32, 0x52892B5B];
+        let rounds = 12;
+
+        let ct = encrypt(pt, &key, rounds);
+        assert_eq!(ct, [0xB7B3422Fu32, 0x92FC6903]);
+
+        let pt = decrypt(ct, &key, rounds);
+        assert_eq!(pt, [0xAC13C0F7u32, 0x52892B5B]);
+    }
+
+    #[test]
+    fn test_rivest_4() {
+        let key = vec![
+            0xDC, 0x49, 0xDB, 0x13, 0x75, 0xA5, 0x58, 0x4F, 0x64, 0x85, 0xB4, 0x13, 0xB5, 0xF1,
+            0x2B, 0xAF,
+        ];
+        let pt = [0xB7B3422Fu32, 0x92FC6903];
+        let rounds = 12;
+
+        let ct = encrypt(pt, &key, rounds);
+        assert_eq!(ct, [0xB278C165u32, 0xCC97D184]);
+
+        let pt = decrypt(ct, &key, rounds);
+        assert_eq!(pt, [0xB7B3422Fu32, 0x92FC6903]);
+    }
+
+    #[test]
+    fn test_rivest_5() {
+        let key = vec![
+            0x52, 0x69, 0xF1, 0x49, 0xD4, 0x1B, 0xA0, 0x15, 0x24, 0x97, 0x57, 0x4D, 0x7F, 0x15,
+            0x31, 0x25,
+        ];
+        let pt = [0xB278C165u32, 0xCC97D184];
+        let rounds = 12;
+
+        let ct = encrypt(pt, &key, rounds);
+        assert_eq!(ct, [0x15E444EBu32, 0x249831DA]);
+
+        let pt = decrypt(ct, &key, rounds);
+        assert_eq!(pt, [0xB278C165u32, 0xCC97D184]);
     }
 }
