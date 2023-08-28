@@ -7,3 +7,7 @@ edition = "2021"
 
 [dependencies]
 num = "0.4.0"
+
+[[bin]]
+name = "rc5-cbc"
+path = "./src/rc5-cbc.rs"
