@@ -2,6 +2,7 @@
   cargo run rc5-cbc -- [--enc/--dec] <input-path> <output-path> <secret-key>
 */
 
+use rc5_course::{decrypt, encrypt, Word};
 use std::env;
 use std::fs;
 
@@ -21,13 +22,64 @@ fn main() {
         _ => panic!("Bad argument as action, provide [--enc/--dec]"),
     };
 
-    let input = args[4].as_str();
-    let output = args[5].as_str();
-    let key = args[6].as_bytes();
+    let input_path = args[4].as_str();
+    let output_path = args[5].as_str();
+    let key = Vec::from(args[6].as_bytes());
+    let rounds = 12;
 
-    let input = fs::read(input).expect(&format!("File {} couldn't be read", input));
+    let input = fs::read(input_path).expect(&format!("File {} couldn't be read", input_path));
 
-    // TODO: encrypt/decrypt
+    let output_data = match option {
+        Actions::Encrypt => encrypt_cbc(&input, &key, rounds),
+        Actions::Decrypt => decrypt_cbc(&input, &key, rounds),
+    };
 
-    fs::write(output, input);
+    fs::write(output_path, output_data);
+}
+
+fn encrypt_cbc(plaintext: &Vec<u8>, key: &Vec<u8>, rounds: usize) -> Vec<u8> {
+    let mut plaintext = plaintext.clone();
+
+    let pt_len = plaintext.len();
+    let word_bytes = u32::BYTES;
+    let chunk = 2 * word_bytes;
+
+    let iters = (pt_len + (chunk - 1)) / chunk;
+    plaintext.extend(vec![0u8; iters * chunk - pt_len]);
+
+    dbg!(pt_len);
+    dbg!(chunk);
+    dbg!(iters);
+
+    let mut output = Vec::<u8>::new();
+    let mut ct = [0u32; 2];
+
+    for i in 0..iters {
+        let a = u32::from_be_bytes(
+            plaintext[i * chunk..i * chunk + word_bytes]
+                .try_into()
+                .unwrap(),
+        );
+        let b = u32::from_be_bytes(
+            plaintext[i * chunk + word_bytes..i * chunk + 2 * word_bytes]
+                .try_into()
+                .unwrap(),
+        );
+
+        let pt = match i {
+            0 => [a, b],
+            _ => [a ^ ct[0], b ^ ct[1]],
+        };
+
+        ct = encrypt(pt, key, rounds);
+
+        output.extend(ct[0].to_be_bytes());
+        output.extend(ct[1].to_be_bytes());
+    }
+
+    output
+}
+
+fn decrypt_cbc(ciphertext: &Vec<u8>, key: &Vec<u8>, rounds: usize) -> Vec<u8> {
+    todo!()
 }
